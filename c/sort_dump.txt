@@ -1,0 +1,66 @@
+
+sort.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <main>:
+   0:	e52db004 	push	{fp}		@ (str fp, [sp, #-4]!)
+   4:	e28db000 	add	fp, sp, #0
+   8:	e24dd014 	sub	sp, sp, #20
+   c:	e3a03000 	mov	r3, #0
+  10:	e50b3010 	str	r3, [fp, #-16]
+  14:	e3a03000 	mov	r3, #0
+  18:	e50b3008 	str	r3, [fp, #-8]
+  1c:	ea00002e 	b	dc <main+0xdc>
+  20:	e51b3008 	ldr	r3, [fp, #-8]
+  24:	e2833001 	add	r3, r3, #1
+  28:	e50b300c 	str	r3, [fp, #-12]
+  2c:	ea000024 	b	c4 <main+0xc4>
+  30:	e51b300c 	ldr	r3, [fp, #-12]
+  34:	e1a03103 	lsl	r3, r3, #2
+  38:	e51b2010 	ldr	r2, [fp, #-16]
+  3c:	e0823003 	add	r3, r2, r3
+  40:	e5932000 	ldr	r2, [r3]
+  44:	e51b3008 	ldr	r3, [fp, #-8]
+  48:	e1a03103 	lsl	r3, r3, #2
+  4c:	e51b1010 	ldr	r1, [fp, #-16]
+  50:	e0813003 	add	r3, r1, r3
+  54:	e5933000 	ldr	r3, [r3]
+  58:	e1520003 	cmp	r2, r3
+  5c:	aa000015 	bge	b8 <main+0xb8>
+  60:	e51b300c 	ldr	r3, [fp, #-12]
+  64:	e1a03103 	lsl	r3, r3, #2
+  68:	e51b2010 	ldr	r2, [fp, #-16]
+  6c:	e0823003 	add	r3, r2, r3
+  70:	e5933000 	ldr	r3, [r3]
+  74:	e50b3014 	str	r3, [fp, #-20]	@ 0xffffffec
+  78:	e51b3008 	ldr	r3, [fp, #-8]
+  7c:	e1a03103 	lsl	r3, r3, #2
+  80:	e51b2010 	ldr	r2, [fp, #-16]
+  84:	e0822003 	add	r2, r2, r3
+  88:	e51b300c 	ldr	r3, [fp, #-12]
+  8c:	e1a03103 	lsl	r3, r3, #2
+  90:	e51b1010 	ldr	r1, [fp, #-16]
+  94:	e0813003 	add	r3, r1, r3
+  98:	e5922000 	ldr	r2, [r2]
+  9c:	e5832000 	str	r2, [r3]
+  a0:	e51b3008 	ldr	r3, [fp, #-8]
+  a4:	e1a03103 	lsl	r3, r3, #2
+  a8:	e51b2010 	ldr	r2, [fp, #-16]
+  ac:	e0823003 	add	r3, r2, r3
+  b0:	e51b2014 	ldr	r2, [fp, #-20]	@ 0xffffffec
+  b4:	e5832000 	str	r2, [r3]
+  b8:	e51b300c 	ldr	r3, [fp, #-12]
+  bc:	e2833001 	add	r3, r3, #1
+  c0:	e50b300c 	str	r3, [fp, #-12]
+  c4:	e51b300c 	ldr	r3, [fp, #-12]
+  c8:	e3530009 	cmp	r3, #9
+  cc:	daffffd7 	ble	30 <main+0x30>
+  d0:	e51b3008 	ldr	r3, [fp, #-8]
+  d4:	e2833001 	add	r3, r3, #1
+  d8:	e50b3008 	str	r3, [fp, #-8]
+  dc:	e51b3008 	ldr	r3, [fp, #-8]
+  e0:	e3530009 	cmp	r3, #9
+  e4:	daffffcd 	ble	20 <main+0x20>
+  e8:	eafffffe 	b	e8 <main+0xe8>
