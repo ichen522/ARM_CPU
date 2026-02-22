@@ -1,32 +1,39 @@
 # Quad HW-Threaded ARM ISA-Compatible Processor on NetFPGA
 
 ## 📌 Project Overview
-This project features a **5-stage pipelined ARM ISA-compatible processor** implemented in Verilog and deployed on the NetFPGA platform. A key architectural highlight is the integration of **hardware support for four simultaneous hardware threads (SMT)**, enabling zero-overhead context switching.
+This project features a custom-designed **5-stage pipelined ARM ISA-compatible processor** implemented in Verilog and deployed on the NetFPGA platform. A key architectural highlight is the integration of hardware support for **four simultaneous hardware threads (SMT)**, enabling zero-overhead context switching.
 
-The processor executes a robust subset of the **ARMv4T (ARM7TDMI)** instruction set, capable of running compiler-generated C programs, including complex benchmarks like bubble sort.
+Unlike basic educational processors, this core is heavily optimized to handle complex, compiler-generated ARM assembly (ARMv4T/ARM7TDMI). It features a sophisticated **micro-operation (Micro-op) control engine** for multi-cycle instructions and a hardware-level **Memory Management Unit (MMU)** to ensure safe concurrent execution of C programs, including complex benchmarks like bubble sort.
 
 ### Key Objectives
-* **Hardware/Software Co-design:** Translating C algorithms into ARM assembly via the `arm-none-eabi` toolchain.
-* **Architectural Design:** Developing a custom 5-stage datapath and control unit with hazard handling.
-* **Concurrency:** Implementing a round-robin hardware scheduler for 4-thread interleaving.
-* **Hardware Verification:** Validating execution flow and memory integrity on NetFPGA silicon.
+* **Hardware/Software Co-design:** Translating C algorithms into ARM assembly via the `arm-none-eabi` toolchain and ensuring hardware compatibility.
+* **Architectural Design:** Developing a custom 5-stage datapath and a highly robust control unit capable of stalling and flushing dynamically.
+* **Concurrency:** Implementing a round-robin hardware scheduler for 4-thread interleaving without memory race conditions.
+* **Hardware Verification:** Validating execution flow, micro-op state machines, and memory integrity via cycle-accurate simulation.
 
 ---
 
 ## 🏗️ Processor Architecture
-The core utilizes a classic RISC pipeline structure:
+The core utilizes a classic RISC pipeline structure with significant enhancements for multi-threading and CISC-like instruction support.
 
-1.  **IF (Instruction Fetch):** Fetches 32-bit instructions from IMEM based on the current Thread ID.
-2.  **ID (Instruction Decode):** Decodes opcode and manages the banked Register File (4 contexts).
-3.  **EX (Execute):** Performs ALU operations, address calculations, and branch target evaluation.
-4.  **MEM (Memory Access):** Handles Load/Store operations to Data Memory.
-5.  **WB (Write Back):** Updates the architectural state in the register file.
+### 1. The 5-Stage Pipelined Datapath
+1. **IF (Instruction Fetch):** Fetches 32-bit instructions from IMEM based on the dynamically selected Thread ID's Program Counter.
+2. **ID (Instruction Decode):** Decodes opcodes, handles immediate generation, and reads from the banked Register File.
+3. **EX (Execute):** Performs ALU operations, barrel shifting, and precise branch target evaluation (`Target = PC + 8 + offset`).
+4. **MEM (Memory Access):** Handles Load/Store operations. Features combinational reads to perfectly align with pipeline timing.
+5. **WB (Write Back):** Updates the architectural state in the register file.
 
-### Hardware Multithreading Extension
-To maximize throughput and hide latencies, the design incorporates:
-* **Quad-Banked Register Files:** Four independent contexts (RF0–RF3).
-* **Thread-Specific PCs:** Four independent Program Counters.
-* **Zero-Overhead Switching:** Thread selection logic allows the processor to switch contexts every clock cycle without the software-level "save/restore" penalty.
+### 2. Advanced Control Unit (Micro-op Engine) 🌟
+A standout feature of this processor is its highly advanced Control Unit, designed to handle complex ARM block transfer instructions (which are typically nightmares for basic RISC pipelines).
+* **LDM/STM State Machine:** Implements a hardware micro-sequencer to break down multi-register Load/Store (`LDMIA`, `STMIA`) into a series of single-cycle micro-operations.
+* **Dynamic Pipeline Freezing:** Capable of perfectly stalling the frontend (IF/ID) while the micro-op engine iterates through the 16-bit register mask, pushing or popping data cycle-by-cycle.
+* **Base Register Protection:** Employs intelligent register overriding (`override_rg1`, `override_wa`) to cache the Base Register (`Rn`) during multi-cycle execution, preventing data corruption as the pipeline shifts.
+
+### 3. Hardware Multithreading & Memory Banking 🌟
+To maximize throughput and isolate execution contexts:
+* **Quad-Banked Register Files:** Four completely independent contexts (RF0–RF3), giving each thread its own set of 16 registers (including isolated Stack Pointers `SP`).
+* **Zero-Overhead Context Switching:** The hardware scheduler rotates threads automatically. Crucially, the scheduler synchronizes with the Control Unit to **pause rotation** when a thread is executing a multi-cycle micro-op, preventing thread-clashing.
+* **Hardware Memory Partitioning (MMU):** The Data Memory is isolated at the hardware level. A 16KB continuous memory is logically partitioned using a custom virtual-to-physical address translation scheme, guaranteeing that concurrent sorting algorithms running on different threads never experience Shared Memory Race Conditions.
 
 ---
 
@@ -36,74 +43,53 @@ All instructions are fixed-width 32-bit (ARM Mode).
 ### 1. Instruction Fields
 | Bits | Field | Description |
 |:---:|:---:|:---|
-| **31–28** | `cond` | Execution condition (e.g., `1110` for AL - Always) |
+| **31–28** | `cond` | Execution condition (e.g., `1110` for AL - Always, `1101` for LE - Less/Equal) |
 | **27–0** | `instr` | Instruction-specific payload |
 
 ### 2. Data Processing Format
-Used for: `ADD`, `SUB`, `MOV`, `CMP`, `LSL`
+Used for: `ADD`, `SUB`, `MOV`, `CMP`
 * **I (Bit 25):** Immediate flag.
-* **Opcode (24–21):** Defines the operation.
+* **Opcode (24–21):** Defines the arithmetic/logical operation.
 * **Rn (19–16):** First source operand register.
 * **Rd (15–12):** Destination register.
-* **Operand2 (11–0):** Flexible second operand (Immediate or Shifted Register).
-
-### 3. Load/Store & Branch
-* **Memory:** Supports `LDR`/`STR` (Single) and `LDM`/`STM` (Multiple/Stack).
-* **Branch:** Target calculated as: $Target = PC + (SignExtend(offset) \ll 2)$.
+* **Operand2 (11–0):** Flexible second operand (Immediate or Shifted Register via internal Barrel Shifter).
 
 ---
 
 ## 🛠️ Supported ISA Subset
+
 | Category | Instructions |
 |:---|:---|
-| **Data Processing** | `ADD`, `SUB`, `MOV`, `CMP`, `LSL` |
-| **Memory/Stack** | `LDR`, `STR`, `LDM` (POP), `STM` (PUSH) |
+| **Data Processing** | `ADD`, `SUB`, `MOV`, `CMP` |
+| **Memory Access** | `LDR`, `STR` |
+| **Stack/Block Transfer** | `LDMIA` (Pop), `STMIA` (Push) - *Fully supported via Micro-op State Machine* |
 | **Flow Control** | `B`, `BGE`, `BLE`, `BX` |
 
 ---
 
 ## 💻 Software Workflow & Verification
-1.  **Compilation:** C source code is compiled using the `arm-none-eabi-gcc` toolchain.
-2.  **Assembling:** Assembly code is converted to hex-encoded machine code.
-3.  **Simulation:** Verified via Verilog testbenches (ModelSim/Vivado).
-4.  **Hardware Deployment:** Binary images loaded into NetFPGA BRAM.
-5.  **Validation:** Comparison of memory dumps (pre- vs. post-sort) and simultaneous execution of four independent threads.
+1. **Compilation:** C source code (e.g., Bubble Sort) is compiled using the `arm-none-eabi-gcc` toolchain.
+2. **Assembly & Linking:** Assembly code is analyzed, ensuring proper stack frame generation (`push {fp, lr}`), and converted to hex-encoded machine code.
+3. **Simulation:** Extensively verified via Verilog testbenches in ModelSim.
+4. **Memory State Validation:** Pre-execution and post-execution memory dumps are compared to verify algorithmic correctness (e.g., confirming the array is perfectly sorted within the thread's specific memory bank).
 
 ---
 
 ## ⚙️ Technologies Used
-* **Languages:** Verilog HDL, C, Assembly
-* **Tools:** ARM GNU Toolchain, Vivado/ISE, ModelSim
-* **Platform:** NetFPGA (Xilinx Virtex-based)
+* **Languages:** Verilog HDL, C, ARM Assembly
+* **Tools:** ARM GNU Toolchain, ModelSim (Simulation & Debugging)
+* **Platform:** Targeted for NetFPGA
 
 ---
 
-## 📊 Results & Verification
-The processor design was rigorously tested and validated using cycle-accurate RTL simulations in ModelSim prior to FPGA deployment. Key achievements include:
+## 📊 Results & Architectural Achievements
+The processor design was rigorously tested and validated using cycle-accurate RTL simulations in ModelSim.
 
-### 1. Pipeline Hazard Resolution (Data Forwarding & Flush)
-Successfully implemented and verified a full Forwarding Unit to seamlessly handle Read-After-Write (RAW) data hazards. 
+### 1. Multi-Cycle LDM/STM Execution
+Successfully executed compiler-generated stack frame setup (`push {fp, lr}`) and array loading. The Control Unit accurately stalls the pipeline, iterates through the register mask, and resumes normal execution without ghost states or deadlocks.
 
-<div align="center">
-  <img src="img/forwarding.jpg" width="800" alt="Data Forwarding Waveform">
-  <p><i>Figure 1: Forwarding Unit injecting memory read data directly into the ALU operand to resolve RAW hazards without stalling.</i></p>
-</div>
+### 2. Zero-Overhead Multithreading & Memory Safety
+Verified the 4-way round-robin hardware scheduler. Waveform analysis confirms the independent execution of four threads. Memory dumps confirm that despite 4 threads executing Bubble Sort simultaneously, the hardware memory partitioning perfectly isolated the arrays, resulting in 4 independently sorted arrays without race conditions.
 
-Alongside data hazards, a robust hardware Pipeline Flush mechanism was introduced to prevent phantom instruction execution during branch operations (Control Hazards).
-
-<div align="center">
-  <img src="img/flush.jpg" width="800" alt="Pipeline Flush Waveform">
-  <p><i>Figure 2: Pipeline Flush mechanism correctly zeroing out the Write-Back enable signal (`wb_reg_write`) after a Branch is taken.</i></p>
-</div>
-
-### 2. Datapath Integrity
-Cycle-by-cycle waveform verification confirmed perfect instruction propagation across all 5 stages (IF, ID, EX, MEM, WB).
-
-<div align="center">
-  <img src="img/propagation.jpg" width="800" alt="Instruction Propagation">
-  <p><i>Figure 3: Clean staircase instruction propagation through the 5-stage pipeline.</i></p>
-</div>
-
-### 3. Zero-Overhead Multithreading & Algorithm Execution
-* **Multithreading:** Verified the 4-way round-robin hardware scheduler. Waveform analysis confirms the independent execution of four threads—each utilizing its dedicated Register File bank and Program Counter—with zero clock cycle penalty for context switching.
-* **Algorithm Execution:** Successfully executed compiler-generated ARM assembly for complex algorithms (e.g., Bubble Sort). Validated memory state dumps confirm 100% accuracy in Load/Store operations and branching logic.
+### 3. Pipeline Hazard Resolution & Flush
+Implemented a robust hardware Pipeline Flush mechanism. The system correctly clears the `IF/ID` and `ID/EX` registers upon detecting a taken branch or initiating a micro-op sequence, preventing phantom instructions from altering the architectural state.
