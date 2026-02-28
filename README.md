@@ -34,7 +34,7 @@ When 4 threads concurrently execute sorting algorithms on shared memory, race co
 
 ## 🏗️ Processor Architecture
 
-![Processor Datapath Diagram](img/datapath_placeholder.png) ### The 5-Stage Pipeline
+The 5-Stage Pipeline
 1. **IF (Instruction Fetch):** Fetches 32-bit instructions from IMEM based on the dynamically scheduled Thread's PC.
 2. **ID (Instruction Decode):** Decodes opcodes, handles immediate generation, and reads from the banked Register File.
 3. **EX (Execute):** ALU operations, barrel shifting, and precise branch target evaluation (`Target = PC + 8 + offset`).
@@ -90,4 +90,4 @@ Verified through Memory Dumps that all 4 hardware threads can independently and 
 6. Inspect `data_dump.hex` or the ModelSim Memory Viewer to verify the sorted arrays.
 
 ---
-*Designed by [Your Name/Ian] - University of Southern California (USC), ECE Dept.*
+*Designed by [Ian Chen] - University of Southern California (USC), ECE Dept.*
