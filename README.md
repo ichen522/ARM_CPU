@@ -76,8 +76,12 @@ Verified through Memory Dumps that all 4 hardware threads can independently and 
 ### 2. Micro-op State Machine Execution
 ![LDM Execution Waveform](img/waveform_ldm_placeholder.png) *Caption: The Control Unit intercepting an `LDMIA` instruction, stalling the pipeline, and executing sequential memory accesses.*
 
-### 3. Pipeline Flush & Hazard Handling
-![Branch Flush Waveform](img/waveform_branch_placeholder.png) *Caption: Correct pipeline flush execution preventing phantom instructions after a taken branch.*
+### 3. Branch Execution & Zero Branch Penalty
+In traditional pipelined processors, a taken branch introduces control hazards that require flushing the pipeline (Branch Penalty). However, this architecture leverages its **4-way interleaved SMT design** to completely hide branch latencies. 
+
+When a branch instruction is resolved in the Execute (EX) stage for Thread A, the instructions currently in the Decode (ID) and Fetch (IF) stages belong to independent threads (e.g., Thread B and Thread C). Therefore, the Program Counter for Thread A is dynamically updated without needing to flush the pipeline, achieving a **Zero Branch Penalty**.
+
+![Branch Execution Waveform](img/waveform_branch.jpg) *Caption: A Branch instruction (`ea000024`) is successfully resolved in the EX stage (`actual_branch` = 1). The PC updates instantly without flushing the trailing instructions in the IF/ID stages, demonstrating the zero-penalty advantage of thread interleaving.*
 
 ---
 
