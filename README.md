@@ -94,4 +94,6 @@ When a branch instruction is resolved in the Execute (EX) stage for Thread A, th
 6. Inspect `data_dump.hex` or the ModelSim Memory Viewer to verify the sorted arrays.
 
 ---
+
 *Designed by [Ian Chen] - University of Southern California (USC), ECE Dept.*
+
